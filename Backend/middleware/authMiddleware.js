@@ -68,7 +68,7 @@ export const authTeacherMiddleware = async(req,res,next)=>{
 
 };
 
-export const authStudentMiddleware = async (req,res)=>{
+export const authStudentMiddleware = async (req,res,next)=>{
     const token = extractToken(req);
     
     if(!token){

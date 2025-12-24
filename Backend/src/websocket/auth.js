@@ -2,6 +2,7 @@
 import jwt from "jsonwebtoken";
 const JWT_SECRET = process.env.JWT_SECRET
 
+// ws://localhost:3000/ws?token=<JWT_TOKEN>
 
 export function authenticateWS(ws,req){
     const base = `http://${req.headers.host}`;

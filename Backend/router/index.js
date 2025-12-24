@@ -2,7 +2,8 @@ import { Router } from "express";
 import {z} from "zod";
 import bcrypt from "bcrypt";
 export const router =Router();
-import {Class, User} from "../config.js";
+import mongoose from "mongoose";
+import {Class, User,Attendance} from "../config.js";
 import jwt from "jsonwebtoken";
 import { authMiddleware, authStudentMiddleware, authTeacherMiddleware } from "../middleware/authMiddleware.js";
 import { startSession, activeSession } from "../src/websocket/sessions.js"
@@ -138,7 +139,7 @@ router.post("/class",authTeacherMiddleware,async(req,res)=>{
             message: "Internal server error"
         });
     }
-})
+});
 
 router.post("/class/:id/add-student",authTeacherMiddleware,async(req,res)=>{
     try{
@@ -152,6 +153,7 @@ router.post("/class/:id/add-student",authTeacherMiddleware,async(req,res)=>{
                 "error": "Invalid studentId"
             });
         }
+
         const classId = req.params.id;
         if (!mongoose.Types.ObjectId.isValid(classId)) {
             return res.status(400).json({
@@ -175,6 +177,12 @@ router.post("/class/:id/add-student",authTeacherMiddleware,async(req,res)=>{
 }
 
         const stu = await User.findById(parsedData.data.studentId);
+        if(!stu){
+            return res.status(404).json({
+                "success": false,
+                "error": "Student not found"
+            });
+        }
         if (stu.role !== "student") {
             return res.status(400).json({
                 success: false,
@@ -182,12 +190,6 @@ router.post("/class/:id/add-student",authTeacherMiddleware,async(req,res)=>{
             });
         }
 
-        if(!stu){
-            return res.status(404).json({
-                "success": false,
-                "error": "Student not found"
-            });
-        }
         const studentId = parsedData.data.studentId;
         const updatedClass = await Class.findByIdAndUpdate(
             classId,
@@ -206,13 +208,15 @@ router.post("/class/:id/add-student",authTeacherMiddleware,async(req,res)=>{
         });
     }
     catch(error){
+        console.error(error);
         return res.status(500).json({
             success: false,
             message: "Internal server error"
         });
     }
 
-})
+});
+
 
 router.get("/class/:id",authMiddleware,async (req,res)=>{
     try{
@@ -233,7 +237,7 @@ router.get("/class/:id",authMiddleware,async (req,res)=>{
         if(!isTeacher && !isStudent){
             return res.status(404).json({
                 success: false,
-                message: "Class not found"
+                message: "You are not associated to this class"
             });
         }
 
@@ -289,7 +293,7 @@ router.get("/class/:id/my-attendance",authStudentMiddleware,async (req,res)=>{
         if(!isStudent){
             return res.status(404).json({
                 success: false,
-                message: "Student not found"
+                message: "Student not associated with this class"
             });
         }
 
@@ -317,12 +321,14 @@ router.get("/class/:id/my-attendance",authStudentMiddleware,async (req,res)=>{
         }
     }
     catch(error){
+        console.log(error);
         return res.status(500).json({
             success: false,
             message: "Internal server error"
         });
     }
 });
+
 router.post("/attendance/start", authTeacherMiddleware, async (req, res) => {
   try {
     const attendanceSchema = z.object({
@@ -373,6 +379,7 @@ router.post("/attendance/start", authTeacherMiddleware, async (req, res) => {
     });
 
   } catch (error) {
+    console.log(error);
     return res.status(500).json({
       success: false,
       message: error.message || "Internal server error"

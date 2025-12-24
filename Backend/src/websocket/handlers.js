@@ -1,5 +1,6 @@
 import { Attendance, Class } from "../../config.js";
 import {activeSession,clearSession} from "./sessions.js"
+import { WebSocket } from "ws";
 
 function sendError(ws,message){
     ws.send(JSON.stringify({
@@ -13,7 +14,7 @@ function sendError(ws,message){
 
 function broadcast(wss,payload){
     wss.clients.forEach((client)=>{
-        if(client.readyState===client.OPEN){
+        if (client.readyState === WebSocket.OPEN) {
             client.send(JSON.stringify(payload));
         }
     });
@@ -32,6 +33,10 @@ export const handleMessage = async (ws,message,wss)=>{
                 return sendError(ws, "No active attendance session");
             }
             const {studentId,status} = data;
+            const cls = await Class.findById(activeSession.classId);
+            if (!cls.studentIds.map(id => id.toString()).includes(studentId)) {
+                return sendError(ws, "Student not part of this class");
+            }
             activeSession.attendance[studentId] = status;
             broadcast(wss,{
                 "event": "ATTENDANCE_MARKED",
@@ -93,6 +98,11 @@ export const handleMessage = async (ws,message,wss)=>{
             // Get all students of class (single DB call)
             const cls = await Class.findById(activeSession.classId)
             .populate("studentIds","_id");
+
+            if (!cls) {
+                clearSession();
+                return sendError(ws, "Class not found");
+            }
 
             const students = cls.studentIds;
             const attendanceMap = activeSession.attendance;
